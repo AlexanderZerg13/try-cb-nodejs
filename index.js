@@ -10,7 +10,13 @@ var jwt = require('jsonwebtoken');
 var JWT_KEY = 'IAMSOSECRETIVE!';
 
 var cluster = new couchbase.Cluster('couchbase://localhost');
-var bucket = cluster.openBucket('travel-sample');
+cluster.authenticate('app__products', 'app__products__password');
+var bucket = cluster.openBucket('travel-sample', function (err) {
+  if (err) {
+    console.log(err);
+    return;
+  }
+});
 
 var app = express();
 app.use(cors());
@@ -228,15 +234,15 @@ app.post('/api/user/signup', function(req, res) {
   });
 });
 
-app.get('/api/user/:username/flights', authUser, function(req, res) {
+app.get('/api/user/:username/flights', function(req, res) {
   var username = req.params.username;
 
-  if (username !== req.user.user) {
+  /*if (username !== req.user.user) {
     res.status(401).send({
       error: 'Username does not match token username.'
     });
     return;
-  }
+  }*/
 
   var userDocKey = 'user::' + username;
   bucket.get(userDocKey, function(err, doc) {
@@ -264,16 +270,16 @@ app.get('/api/user/:username/flights', authUser, function(req, res) {
   });
 });
 
-app.post('/api/user/:username/flights', authUser, function(req, res) {
+app.post('/api/user/:username/flights', function(req, res) {
   var username = req.params.username;
   var flights = req.body.flights;
 
-  if (username !== req.user.user) {
+  /*if (username !== req.user.user) {
     res.status(401).send({
       error: 'Username does not match token username.'
     });
     return;
-  }
+  }*/
 
   var userDocKey = 'user::' + username;
   bucket.get(userDocKey, function(err, doc) {
@@ -297,7 +303,7 @@ app.post('/api/user/:username/flights', authUser, function(req, res) {
 
     doc.value.flights  = doc.value.flights.concat(flights);
 
-    bucket.replace(userDocKey, {cas: doc.cas}, doc.value, function(err, res) {
+    bucket.replace(userDocKey, doc.value, {cas: doc.cas}, function(err, data) {
       if (err) {
         res.status(500).send({
           error: err
